@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#f3f3f6">
+<title>6×6 コンボ回避AI</title>
+<style>
+:root{--purple:#5147c7;--bg:#f3f3f6;--panel:#fff;--text:#17171b;--line:#4f4f4f;--cell:#c9c9c9;--cell2:#d4d4d4;--corner:#8d8d8d;--hint:#fff28a;--last:#2081ff;--rec:#16a0ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}body{padding:max(10px,env(safe-area-inset-top)) 0 max(16px,env(safe-area-inset-bottom));overscroll-behavior:none}.app{max-width:680px;margin:auto;padding:0 9px}button,.cell,.seg,.board{touch-action:manipulation}
+.score{background:#fff;border-radius:16px;padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;box-shadow:0 4px 14px #00000012}.side{text-align:center;font-weight:800}.disc{display:inline-block;width:27px;height:27px;border-radius:50%;vertical-align:middle;margin-right:7px;border:1px solid #888}.disc.b{background:radial-gradient(circle at 35% 28%,#444,#111 48%,#050505)}.disc.w{background:radial-gradient(circle at 35% 28%,#fff,#f5f5f5 58%,#ccc)}.side strong{font-size:21px}.sub{font-size:12px;color:#666;margin-top:3px}
+.panel{background:#fff;border:1px solid #ddd;border-radius:11px;padding:9px;margin-top:8px}.mode-title{text-align:center;color:var(--purple);font-weight:800;font-size:13px;margin-bottom:6px}.seg{display:grid;grid-template-columns:1fr 1fr;border:1.5px solid var(--purple);border-radius:10px;overflow:hidden}.seg button{border:0;background:#fff;color:var(--purple);padding:10px 4px;font-weight:800}.seg button.on{background:var(--purple);color:#fff}.mode-help{font-size:12px;color:#666;text-align:center;margin-top:6px}
+.info{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}.box{background:#fff;border:1px solid #ddd;border-radius:11px;padding:7px 4px;text-align:center}.box b{display:block;color:var(--purple);font-size:12px}.box strong{font-size:17px}
+.shell{margin-top:14px}.cols{display:grid;grid-template-columns:25px repeat(6,1fr);text-align:center;color:#666;font-weight:700;margin-bottom:3px}.board-row{display:grid;grid-template-columns:25px 1fr}.rows{display:grid;grid-template-rows:repeat(6,1fr);place-items:center;color:#666;font-weight:700}.board{aspect-ratio:1;display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(6,1fr);background:#444;border:5px solid #444}.cell{position:relative;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:linear-gradient(145deg,var(--cell2),var(--cell));padding:0;display:grid;place-items:center}.cell:nth-child(6n){border-right:0}.cell:nth-child(n+31){border-bottom:0}.cell.corner{background:linear-gradient(145deg,#989898,var(--corner))}.cell.legal{background:radial-gradient(circle,#fff7b0 0,var(--hint) 62%,#e8db7e 100%)}.stone{width:70%;height:70%;border-radius:50%;box-shadow:0 2px 4px #0005,inset 0 2px 3px #fff3;z-index:2}.stone.b{background:radial-gradient(circle at 35% 28%,#454545,#171717 48%,#080808)}.stone.w{background:radial-gradient(circle at 35% 28%,#fff,#f6f6f6 60%,#d5d5d5);border:1px solid #aaa}.cell.last:after{content:"";position:absolute;inset:4px;border:3px solid var(--last);z-index:4}.cell.recommended{outline:4px solid var(--rec);outline-offset:-4px}.cell.recommended:before{content:"★";position:absolute;left:4px;top:2px;color:#127ad3;font-size:17px;font-weight:900;z-index:5}.combo-tag{position:absolute;right:3px;bottom:2px;font-size:11px;font-weight:900;color:#7a3100;z-index:5}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}.actions button{border:1px solid #ddd;background:#fff;color:var(--purple);border-radius:11px;padding:11px 4px;font-weight:800}.status{margin-top:8px;background:#eeecff;border-radius:11px;padding:9px 11px;font-size:13px;font-weight:800;min-height:36px}.bottom{margin:8px auto max(84px,calc(env(safe-area-inset-bottom) + 64px));max-width:340px}.result{display:none;background:#fff;border:1px solid #ddd;border-radius:11px;padding:11px;margin-top:8px;text-align:center;font-weight:800}.result.show{display:block}
+@media(max-width:380px){.actions button{font-size:12px}.mode-help,.status{font-size:11px}}
+</style>
+</head>
+<body><main class="app">
+  <section class="score">
+    <div class="side"><span class="disc b"></span>黒 <strong id="blackCount">2</strong><div class="sub">使用 <span id="blackUsed">0</span>/16・コンボ <span id="blackCombo">0</span></div></div>
+    <div class="side"><span class="disc w"></span>白 <strong id="whiteCount">2</strong><div class="sub">使用 <span id="whiteUsed">0</span>/16・コンボ <span id="whiteCombo">0</span></div></div>
+  </section>
+  <section class="panel">
+    <div class="mode-title">AIの考え方</div>
+    <div class="seg"><button id="attackBtn" class="on">攻撃型</button><button id="suppressBtn">抑制型</button></div>
+    <div class="mode-help" id="modeHelp">自分のコンボを増やし、相手のダブル・トリプルを避けます</div>
+  </section>
+  <section class="info"><div class="box"><b>ターン</b><strong id="round">0</strong></div><div class="box"><b>今回のコンボ</b><strong id="lastCombo">0</strong></div><div class="box"><b>状態</b><strong id="state">手動</strong></div></section>
+  <section class="shell"><div class="cols"><span></span><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span></div><div class="board-row"><div class="rows"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div><div id="board" class="board"></div></div></section>
+  <section class="actions"><button id="undoBtn">← 一つ前</button><button id="recommendBtn">★ 最善手を隠す</button><button id="resetBtn">↻ 最初から</button></section>
+  <div class="status" id="status"></div><div class="result" id="result"></div>
+  <section class="panel bottom"><div class="mode-title">後攻</div><div class="seg"><button id="autoBtn">自動</button><button id="manualBtn" class="on">手動</button></div></section>
+</main>
+<script>
+(()=>{
+const N=6,E=0,B=1,W=-1,DIR=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]],$=id=>document.getElementById(id);
+let board,turn,history,lastMove,ply,combos,used,lastCombo,mode='attack',autoWhite=false,showBest=true,busy=false,over=false,bestKey=null;
+const inside=(r,c)=>r>=0&&r<N&&c>=0&&c<N;
+function moveAt(b,r,c,p){if(!inside(r,c)||b[r][c]!==E)return null;const flips=[],dirs=[];for(const [dr,dc] of DIR){let rr=r+dr,cc=c+dc,line=[];while(inside(rr,cc)&&b[rr][cc]===-p){line.push([rr,cc]);rr+=dr;cc+=dc}if(line.length&&inside(rr,cc)&&b[rr][cc]===p){flips.push(...line);dirs.push([dr,dc])}}return flips.length?{r,c,flips,combo:dirs.length}:null}
+function moves(b,p){const out=[];for(let r=0;r<N;r++)for(let c=0;c<N;c++){const m=moveAt(b,r,c,p);if(m)out.push(m)}return out}
+function apply(b,m,p){const n=b.map(x=>x.slice());n[m.r][m.c]=p;for(const [r,c] of m.flips)n[r][c]=p;return n}
+function count(b,p){let n=0;for(const row of b)for(const x of row)if(x===p)n++;return n}
+function posScore(b,p){const V=[[70,-22,12,8,-22,70],[-22,-35,-2,-2,-35,-22],[12,-2,5,5,-2,12],[8,-2,5,5,-2,8],[-22,-35,-2,-2,-35,-22],[70,-22,12,8,-22,70]];let s=0;for(let r=0;r<N;r++)for(let c=0;c<N;c++)s+=b[r][c]===p?V[r][c]:b[r][c]===-p?-V[r][c]:0;return s}
+function leaf(b,root,ownC,oppC,style){const mobility=(moves(b,root).length-moves(b,-root).length)*5;const combo=style==='attack'?ownC*54-oppC*78:-ownC*10-oppC*96;return combo+posScore(b,root)+mobility}
+function search(b,p,root,depth,alpha,beta,ownC,oppC,style){const ms=moves(b,p);if(depth===0||!ms.length)return leaf(b,root,ownC,oppC,style);if(p===root){let v=-1e9;for(const m of order(ms,style,true)){v=Math.max(v,search(apply(b,m,p),-p,root,depth-1,alpha,beta,ownC+m.combo,oppC,style));alpha=Math.max(alpha,v);if(alpha>=beta)break}return v}else{let v=1e9;for(const m of order(ms,style,false)){v=Math.min(v,search(apply(b,m,p),-p,root,depth-1,alpha,beta,ownC,oppC+m.combo,style));beta=Math.min(beta,v);if(alpha>=beta)break}return v}}
+function order(ms,style,ours){return ms.slice().sort((a,b)=>{const wa=ours&&style==='attack'?a.combo:-a.combo,wb=ours&&style==='attack'?b.combo:-b.combo;return wb-wa})}
+function bestMove(){const ms=moves(board,turn);if(!ms.length)return null;let best=ms[0],value=-1e9;const depth=ply<4?6:5;for(const m of order(ms,mode,true)){const v=search(apply(board,m,turn),-turn,turn,depth-1,-1e9,1e9,m.combo,0,mode);if(v>value){value=v;best=m}}return best}
+function snapshot(){history.push({board:board.map(x=>x.slice()),turn,ply,lastMove:lastMove&&{...lastMove},combos:{...combos},used:{...used},lastCombo,over})}
+function play(m){snapshot();board=apply(board,m,turn);combos[turn]+=m.combo;used[turn]++;lastCombo=m.combo;lastMove={r:m.r,c:m.c,p:turn,combo:m.combo};ply++;turn=-turn;advance()}
+function clickCell(r,c){if(busy||over||(turn===W&&autoWhite))return;const m=moveAt(board,r,c,turn);if(m)play(m)}
+function advance(){let ms=moves(board,turn);if(!ms.length){if(!moves(board,-turn).length){finish();return}turn=-turn;ms=moves(board,turn)}render();if(autoWhite&&turn===W&&!over)setTimeout(aiMove,100)}
+function aiMove(){if(turn!==W||!autoWhite||over)return;busy=true;render();setTimeout(()=>{const m=bestMove();busy=false;if(m)play(m);else advance()},40)}
+function comboName(n){return n===1?'シングル':n===2?'ダブル':n>=3?'トリプル以上':'なし'}
+function finish(){over=true;busy=false;render();$('result').textContent=`終了　黒コンボ ${combos[B]} ／ 白コンボ ${combos[W]}`;$('result').classList.add('show')}
+function init(){board=Array.from({length:N},()=>Array(N).fill(E));board[2][2]=W;board[2][3]=B;board[3][2]=B;board[3][3]=W;turn=B;history=[];lastMove=null;ply=0;combos={[B]:0,[W]:0};used={[B]:0,[W]:0};lastCombo=0;busy=false;over=false;$('result').classList.remove('show');render()}
+function undo(){if(!history.length)return;let s=history.pop();if(autoWhite&&turn===B&&s.turn===W&&history.length)s=history.pop();board=s.board;turn=s.turn;ply=s.ply;lastMove=s.lastMove;combos=s.combos;used=s.used;lastCombo=s.lastCombo;over=s.over;busy=false;$('result').classList.toggle('show',over);render()}
+function render(){const ms=over||busy?[]:moves(board,turn),map=new Map(ms.map(m=>[`${m.r},${m.c}`,m]));const bm=showBest&&!over&&!busy?bestMove():null;bestKey=bm?`${bm.r},${bm.c}`:null;$('board').innerHTML='';for(let r=0;r<N;r++)for(let c=0;c<N;c++){const el=document.createElement('button'),key=`${r},${c}`,m=map.get(key);el.className='cell';if((r===0||r===5)&&(c===0||c===5))el.classList.add('corner');if(m)el.classList.add('legal');if(lastMove&&lastMove.r===r&&lastMove.c===c)el.classList.add('last');if(bestKey===key)el.classList.add('recommended');if(board[r][c]===B)el.innerHTML='<span class="stone b"></span>';else if(board[r][c]===W)el.innerHTML='<span class="stone w"></span>';else if(m&&m.combo>1)el.innerHTML=`<span class="combo-tag">×${m.combo}</span>`;el.onclick=()=>clickCell(r,c);$('board').appendChild(el)}$('blackCount').textContent=count(board,B);$('whiteCount').textContent=count(board,W);$('blackUsed').textContent=used[B];$('whiteUsed').textContent=used[W];$('blackCombo').textContent=combos[B];$('whiteCombo').textContent=combos[W];$('round').textContent=`${Math.floor(ply/2)}ターン`;$('lastCombo').textContent=comboName(lastCombo);$('state').textContent=autoWhite?'自動':'手動';$('recommendBtn').textContent=showBest?'★ 最善手を隠す':'☆ 最善手を表示';$('status').textContent=over?'対局終了':busy?'白AIが考えています…':`${turn===B?'黒':'白'}の番です。${showBest?' ★がAIのおすすめです。':''}`}
+function setMode(next){mode=next;$('attackBtn').classList.toggle('on',mode==='attack');$('suppressBtn').classList.toggle('on',mode==='suppress');$('modeHelp').textContent=mode==='attack'?'自分のコンボを増やし、相手のダブル・トリプルを避けます':'自分のコンボも抑え、相手にコンボさせないことを最優先します';render()}
+$('attackBtn').onclick=()=>setMode('attack');$('suppressBtn').onclick=()=>setMode('suppress');$('manualBtn').onclick=()=>{autoWhite=false;$('manualBtn').classList.add('on');$('autoBtn').classList.remove('on');render()};$('autoBtn').onclick=()=>{autoWhite=true;$('autoBtn').classList.add('on');$('manualBtn').classList.remove('on');render();if(turn===W)setTimeout(aiMove,100)};$('undoBtn').onclick=undo;$('resetBtn').onclick=init;$('recommendBtn').onclick=()=>{showBest=!showBest;render()};init();
+})();
+</script></body></html>
